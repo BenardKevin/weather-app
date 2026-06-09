@@ -1,29 +1,36 @@
-// Node v24
 // input: city_name + api_key
 // target: user's input -> API -> console
-// output: date, weather, mid_temperature
+// output: [date, weather, mid_temperature]
+// openweathermap free access : 60 calls/minute, 1 000 000 calls/month | 3-hourly forecast for 5 days API
+
+const SERVICE = `https://api.openweathermap.org`;
+
+main().catch(error => {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+});
 
 async function main() {
     const { cityName, apiKey } = getInput();
-    const { lat, lon } = await getCoordinates(cityName, apiKey);
-    const data = await getDataset(lat, lon, apiKey);
+    const data = await getDataset(cityName, apiKey);
     displayWeather(data);
 }
 
-function displayWeather(data) {
-    var date = new Date().toLocaleDateString(), 
-        weather = data.weather[0].main, 
-        mid_temperature = (data.main.temp_max + data.main.temp_min) / 2;
 
-    console.log(`${date}, ${weather}, ${mid_temperature.toFixed(0)}`);
+function getInput() {
+    require('dotenv').config();
+    const cityName = process.argv[2], apiKey = process.env.KEY;
+
+    if (!cityName) throw new Error("Missing input city name");
+    if (!apiKey) throw new Error(`Missing environment variable`);
+    return { cityName, apiKey };
 }
-
-async function getDataset(lat, lon, apiKey) {
-    const EXCLUDE = "minutely,hourly,alerts";
-    const UNITS = "metric";
+async function getDataset(cityName, apiKey) {
+    const { lat, lon } = await getCoordinates(cityName, apiKey);
+    const EXCLUDE = "minutely,hourly,alerts", UNITS = "metric";
 
     try {
-        const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&appid=${apiKey}&exclude=${EXCLUDE}&units=${UNITS}`, response = await fetch(url);
+        const url = `${SERVICE}/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&exclude=${EXCLUDE}&units=${UNITS}`, response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const dataset = await response.json();
@@ -35,10 +42,9 @@ async function getDataset(lat, lon, apiKey) {
         process.exit(1);
     }
 }
-
 async function getCoordinates(cityName, apiKey) {
     try {
-        const url = `https://api.openweathermap.org/geo/1.0/direct?q=${cityName}&appid=${apiKey}&limit=1`, 
+        const url = `${SERVICE}/geo/1.0/direct?q=${cityName}&appid=${apiKey}&limit=1`, 
         response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -52,17 +58,29 @@ async function getCoordinates(cityName, apiKey) {
         process.exit(1);
     }
 }
+function displayWeather(data) {
+    var weatherForecast = [];
 
-function getInput() {
-    require('dotenv').config();
-    const cityName = process.argv[2], apiKey = process.env.KEY;
+    for (let i = 0; i < data.list.length; i++) {
+        const row = data.list[i];
 
-    if (!cityName) throw new Error("Missing input city name");
-    if (!apiKey) throw new Error(`Missing environment variable`);
-    return { cityName, apiKey };
+        let date = row.dt_txt.split(" ")[0];
+        let weather = row.weather[0].main;
+        let temp = Math.round(row.main.temp);
+
+        if (weatherForecast && weatherForecast.findIndex(row => row.date === date) === -1) {
+            weatherForecast.push({ date, "weathers" : {weather: 1}, temp });
+        } else {
+            const existingRow = weatherForecast.find(row => row.date === date);
+            existingRow.weathers[weather] = (existingRow.weathers[weather] || 0) + 1;
+            existingRow.temp = Math.round(((existingRow.temp + temp) / 2));
+        }
+    }
+
+    // console.log(weatherForecast);
+    console.log(`\nWeather forecast for ${data.city.name} (${data.city.country}):`);
+    weatherForecast.forEach(row => {
+        row.weather = Object.keys(row.weathers).reduce((a, b) => row.weathers[a] > row.weathers[b] ? a : b);
+        console.log(`${row.date}, ${row.weather}, ${row.temp}°C`);
+    });
 }
-
-main().catch(error => {
-    console.error(`Error: ${error.message}`);
-    process.exit(1);
-});
