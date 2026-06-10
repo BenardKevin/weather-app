@@ -1,5 +1,5 @@
-# Weather Forecast CLI Exporter
-Node.js command-line interface (CLI) application that retrieves 5-day weather forecasts for a given city via the OpenWeatherMap API and automatically exports the data into a structured CSV file. The application aggregates 3-hourly forecast data to generate a daily summary featuring the dominant weather condition and the average temperature.
+# Weather Forecast
+Node.js application that retrieves 5-day weather forecasts for a given city via the OpenWeatherMap API and automatically exports the data into a structured CSV file. The application aggregates 3-hourly forecast data to generate a daily summary featuring the dominant weather condition and the average temperature.
 
 ## Features
 * Integrated Geocoding: Automatically converts the city name into geographical coordinates (Latitude/Longitude).
