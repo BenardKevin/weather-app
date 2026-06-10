@@ -1,10 +1,3 @@
-// input: city_name + api_key
-// target: user's input -> API -> console
-// output: [date, weather, mid_temperature]
-// openweathermap free access : 60 calls/minute, 1 000 000 calls/month | 3-hourly forecast for 5 days API
-
-const SERVICE = `https://api.openweathermap.org`;
-
 main().catch(error => {
     console.error(`Error: ${error.message}`);
     process.exit(1);
@@ -12,11 +5,20 @@ main().catch(error => {
 
 async function main() {
     const { cityName, apiKey } = getInput();
+
+    const { getDataset } = require('../services/dataService');
     const data = await getDataset(cityName, apiKey);
-    displayWeather(data);
+    
+    const weatherForecast = processData(data);
+    
+    const { createCSV } = require('../services/OutputService');
+    createCSV(cityName, weatherForecast);
 }
 
-
+/**
+ * Get input from the command line arguments and environment variables
+ * @returns cityName and apiKey
+ */
 function getInput() {
     require('dotenv').config();
     const cityName = process.argv[2], apiKey = process.env.KEY;
@@ -25,40 +27,15 @@ function getInput() {
     if (!apiKey) throw new Error(`Missing environment variable`);
     return { cityName, apiKey };
 }
-async function getDataset(cityName, apiKey) {
-    const { lat, lon } = await getCoordinates(cityName, apiKey);
-    const EXCLUDE = "minutely,hourly,alerts", UNITS = "metric";
 
-    try {
-        const url = `${SERVICE}/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&exclude=${EXCLUDE}&units=${UNITS}`, response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-        const dataset = await response.json();
 
-        return dataset;
-
-    } catch (error) {
-        console.error(`Error fetching weather data: ${error.message}`);
-        process.exit(1);
-    }
-}
-async function getCoordinates(cityName, apiKey) {
-    try {
-        const url = `${SERVICE}/geo/1.0/direct?q=${cityName}&appid=${apiKey}&limit=1`, 
-        response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-        const dataset = await response.json();
-        var lat = dataset[0].lat, lon = dataset[0].lon;
-
-        return { lat, lon };
-
-    } catch (error) {
-        console.error(`Error fetching weather data: ${error.message}`);
-        process.exit(1);
-    }
-}
-function displayWeather(data) {
+/**
+ * Process the dataset to get the weather forecast for each day
+ * @param {dataset} data 
+ * @returns weather forecast for each day
+ */
+function processData(data) {
     var weatherForecast = [];
 
     for (let i = 0; i < data.list.length; i++) {
@@ -76,11 +53,8 @@ function displayWeather(data) {
             existingRow.temp = Math.round(((existingRow.temp + temp) / 2));
         }
     }
-
-    // console.log(weatherForecast);
-    console.log(`\nWeather forecast for ${data.city.name} (${data.city.country}):`);
     weatherForecast.forEach(row => {
         row.weather = Object.keys(row.weathers).reduce((a, b) => row.weathers[a] > row.weathers[b] ? a : b);
-        console.log(`${row.date}, ${row.weather}, ${row.temp}°C`);
     });
+    return weatherForecast;
 }
